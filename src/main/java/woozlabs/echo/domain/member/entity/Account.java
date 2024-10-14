@@ -33,6 +33,7 @@ public class Account extends BaseEntity {
     private String accessToken;
     private String refreshToken;
     private LocalDateTime accessTokenFetchedAt;
+    private LocalDateTime lastLoginAt;
 
     @Builder.Default
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)

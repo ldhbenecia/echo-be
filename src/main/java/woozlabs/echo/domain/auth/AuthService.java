@@ -1,4 +1,4 @@
-package woozlabs.echo.domain.member.service;
+package woozlabs.echo.domain.auth;
 
 import com.google.firebase.auth.FirebaseAuthException;
 import jakarta.servlet.http.HttpServletRequest;

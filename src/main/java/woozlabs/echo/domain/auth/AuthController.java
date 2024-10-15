@@ -1,4 +1,4 @@
-package woozlabs.echo.domain.member.controller;
+package woozlabs.echo.domain.auth;
 
 import com.google.firebase.auth.FirebaseAuthException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,8 +9,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import woozlabs.echo.domain.member.service.AuthService;
 import woozlabs.echo.global.aop.annotations.VerifyToken;
+import woozlabs.echo.global.constant.GlobalConstant;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -20,9 +22,15 @@ public class AuthController {
     private final AuthService authService;
 
     @GetMapping("/google/callback")
-    public void handleOAuthCallback(@RequestParam("code") String code,
+    public void handleOAuthCallback(@RequestParam(required = false) String code,
+                                    @RequestParam(required = false) String error,
                                     HttpServletRequest request,
-                                    HttpServletResponse response) throws FirebaseAuthException {
+                                    HttpServletResponse response) throws FirebaseAuthException, IOException {
+        if ("access_denied".equals(error)) {
+            response.sendRedirect(GlobalConstant.ACCESS_DENIED_REDIRECT_URL);
+            return;
+        }
+
         authService.handleGoogleCallback(code, request, response);
     }
 

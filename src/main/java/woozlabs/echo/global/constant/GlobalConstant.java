@@ -10,6 +10,7 @@ public final class GlobalConstant {
     public static final String AUTH_ADD_ACCOUNT_DOMAIN = "https://echo-homepage.woozlabs.com/add-account";
     // End Points
     public static final String ECHO_NEXT_APP_DOMAIN = "https://echo-homepage.vercel.app";
+    public static final String ACCESS_DENIED_REDIRECT_URL = ECHO_NEXT_APP_DOMAIN + "/?access=denied";
     // Basic Char
     public static final String EMPTY_CHAR = "";
     // Gmail global

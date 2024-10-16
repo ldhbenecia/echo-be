@@ -50,6 +50,7 @@ import woozlabs.echo.domain.member.entity.Account;
 import woozlabs.echo.domain.member.entity.MemberAccount;
 import woozlabs.echo.domain.member.repository.AccountRepository;
 import woozlabs.echo.domain.member.repository.query.MemberAccountQueryRepository;
+import woozlabs.echo.domain.member.service.AccountService;
 import woozlabs.echo.global.exception.CustomErrorException;
 import woozlabs.echo.global.exception.ErrorCode;
 import woozlabs.echo.global.utils.GlobalUtility;
@@ -59,10 +60,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.regex.Matcher;
@@ -86,8 +84,12 @@ public class GmailService {
     private final FcmTokenRepository fcmTokenRepository;
     private final GmailUtility gmailUtility;
     private final PubSubValidator pubSubValidator;
+    private final AccountService accountService;
 
-    public GmailThreadListResponse getQueryUserEmailThreads(String accessToken, String pageToken, Long maxResults, String q) {
+    public GmailThreadListResponse getQueryUserEmailThreads(String accessToken, String pageToken, Long maxResults, String q, String aAUid) {
+        // last login update
+        accountService.findAccountAndUpdateLastLogin(aAUid);
+
         Gmail gmailService = gmailUtility.createGmailService(accessToken);
         // ---- temp data ----
         LocalDate currentDate = LocalDate.now();

@@ -24,10 +24,18 @@ public class AuthController {
     @GetMapping("/google/callback")
     public void handleOAuthCallback(@RequestParam(required = false) String code,
                                     @RequestParam(required = false) String error,
+                                    @RequestParam(required = false) String state,
                                     HttpServletRequest request,
                                     HttpServletResponse response) throws FirebaseAuthException, IOException {
+
         if ("access_denied".equals(error)) {
-            response.sendRedirect(GlobalConstant.ACCESS_DENIED_REDIRECT_URL);
+            String redirectUrl = GlobalConstant.ACCESS_DENIED_GOOGLE_REDIRECT_URL;
+
+            if (state != null) {
+                redirectUrl += "?state=" + state;
+            }
+
+            response.sendRedirect(redirectUrl);
             return;
         }
 

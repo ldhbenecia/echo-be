@@ -13,6 +13,8 @@ import woozlabs.echo.domain.member.repository.MemberRepository;
 import woozlabs.echo.global.exception.CustomErrorException;
 import woozlabs.echo.global.exception.ErrorCode;
 
+import java.time.LocalDateTime;
+
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -68,6 +70,15 @@ public class AccountService {
 
         memberAccountRepository.delete(memberAccount);
         memberRepository.save(member);
+        accountRepository.save(account);
+    }
+
+    @Transactional
+    public void findAccountAndUpdateLastLogin(String aAUid) {
+        Account account = accountRepository.findByUid(aAUid)
+                .orElseThrow(() -> new CustomErrorException(ErrorCode.NOT_FOUND_ACCOUNT_ERROR_MESSAGE));
+
+        account.setLastLoginAt(LocalDateTime.now());
         accountRepository.save(account);
     }
 }

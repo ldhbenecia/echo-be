@@ -1,4 +1,4 @@
-package woozlabs.echo.domain.member.utils;
+package woozlabs.echo.domain.auth.utils;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;

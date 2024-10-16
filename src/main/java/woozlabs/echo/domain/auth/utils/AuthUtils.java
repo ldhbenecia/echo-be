@@ -1,4 +1,4 @@
-package woozlabs.echo.domain.member.utils;
+package woozlabs.echo.domain.auth.utils;
 
 import java.security.SecureRandom;
 

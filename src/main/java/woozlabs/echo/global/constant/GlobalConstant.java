@@ -8,8 +8,10 @@ public final class GlobalConstant {
     public static final String AUTH_UNAUTHORIZED_ERR_MSG = "인증되지 않은 사용자입니다.";
     public static final String AUTH_SIGN_IN_DOMAIN = "https://echo-homepage.woozlabs.com/sign-in";
     public static final String AUTH_ADD_ACCOUNT_DOMAIN = "https://echo-homepage.woozlabs.com/add-account";
+    public static final String GOOGLE_AUTH_PATH = "/auth/google";
     // End Points
     public static final String ECHO_NEXT_APP_DOMAIN = "https://echo-homepage.vercel.app";
+    public static final String ACCESS_DENIED_GOOGLE_REDIRECT_URL = ECHO_NEXT_APP_DOMAIN + GOOGLE_AUTH_PATH + "?error=access_denied";
     // Basic Char
     public static final String EMPTY_CHAR = "";
     // Gmail global

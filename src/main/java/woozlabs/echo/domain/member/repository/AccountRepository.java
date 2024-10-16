@@ -23,6 +23,9 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     @Query("SELECT a FROM Account a WHERE a.accessTokenFetchedAt <= :cutoffTime")
     Page<Account> findByAccessTokenFetchedAtBefore(@Param("cutoffTime") LocalDateTime cutoffTime, Pageable pageable);
 
+    @Query("SELECT a FROM Account a WHERE a.lastLoginAt <= :cutoffTime")
+    Page<Account> findByLastLoginAtBefore(@Param("cutoffTime") LocalDateTime cutoffTime, Pageable pageable);
+
     @Query("SELECT a.uid FROM Account a " +
             "JOIN a.memberAccounts ma " +
             "GROUP BY a.id " +

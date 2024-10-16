@@ -1,4 +1,4 @@
-package woozlabs.echo.domain.member.utils;
+package woozlabs.echo.domain.auth.utils;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;

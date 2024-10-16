@@ -47,7 +47,7 @@ public class GmailController {
                                                        @RequestParam("aAUid") String aAUid){
         log.info("Request to get threads");
         String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
-        GmailThreadListResponse response = gmailService.getQueryUserEmailThreads(accessToken, pageToken, maxResults, q);
+        GmailThreadListResponse response = gmailService.getQueryUserEmailThreads(accessToken, pageToken, maxResults, q, aAUid);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 

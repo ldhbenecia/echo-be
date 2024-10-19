@@ -8,6 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
+import woozlabs.echo.domain.auth.utils.AuthCookieUtils;
+import woozlabs.echo.domain.auth.utils.AuthUtils;
+import woozlabs.echo.domain.auth.utils.FirebaseUtils;
 import woozlabs.echo.domain.member.entity.Account;
 import woozlabs.echo.domain.member.entity.Member;
 import woozlabs.echo.domain.member.entity.MemberAccount;
@@ -15,9 +18,6 @@ import woozlabs.echo.domain.member.entity.Watch;
 import woozlabs.echo.domain.member.repository.AccountRepository;
 import woozlabs.echo.domain.member.repository.MemberAccountRepository;
 import woozlabs.echo.domain.member.repository.MemberRepository;
-import woozlabs.echo.domain.auth.utils.AuthCookieUtils;
-import woozlabs.echo.domain.auth.utils.AuthUtils;
-import woozlabs.echo.domain.auth.utils.FirebaseUtils;
 import woozlabs.echo.global.constant.GlobalConstant;
 import woozlabs.echo.global.exception.CustomErrorException;
 import woozlabs.echo.global.exception.ErrorCode;
@@ -61,20 +61,8 @@ public class AuthService {
         }
     }
 
-    private Account updateExistingAccount(Account existingAccount, Map<String, Object> userInfo, String refreshToken) {
-        existingAccount.setDisplayName((String) userInfo.get("name"));
-        existingAccount.setEmail((String) userInfo.get("email"));
-        existingAccount.setProfileImageUrl((String) userInfo.get("picture"));
-        existingAccount.setAccessToken((String) userInfo.get("access_token"));
-        if (refreshToken != null) {
-            existingAccount.setRefreshToken(refreshToken);
-        }
-        existingAccount.setAccessTokenFetchedAt(LocalDateTime.now());
-        existingAccount.setProvider(GOOGLE_PROVIDER);
-        return existingAccount;
-    }
-
     private Account createNewAccount(String providerId, String displayName, String email, String profileImageUrl, String accessToken, String refreshToken, String uuid, String provider) {
+        log.info("Creating new account with providerId: {}, email: {}", providerId, email);
         return Account.builder()
                 .uid(uuid)
                 .providerId(providerId)
@@ -88,6 +76,19 @@ public class AuthService {
                 .build();
     }
 
+    private void updateAccountInfo(Account account, Map<String, Object> userInfo) {
+        account.setDisplayName((String) userInfo.get("name"));
+        account.setEmail((String) userInfo.get("email"));
+        account.setProfileImageUrl((String) userInfo.get("picture"));
+        account.setAccessToken((String) userInfo.get("access_token"));
+        String refreshToken = (String) userInfo.get("refresh_token");
+        if (refreshToken != null) {
+            account.setRefreshToken(refreshToken);
+        }
+        account.setAccessTokenFetchedAt(LocalDateTime.now());
+        account.setProvider(GOOGLE_PROVIDER);
+    }
+
     @Transactional
     public void handleGoogleCallback(String code, HttpServletRequest request, HttpServletResponse response) throws FirebaseAuthException {
         Map<String, Object> userInfo = googleOAuthUtils.getGoogleUserInfoAndTokens(code);
@@ -96,8 +97,10 @@ public class AuthService {
         Optional<Account> existingAccountOpt = accountRepository.findByProviderId(providerId);
 
         if (existingAccountOpt.isPresent()) {
+            log.info("Account with providerId: {} found. Handling existing account.", providerId);
             handleExistingAccount(existingAccountOpt.get(), userInfo, request, response);
         } else {
+            log.info("No account found with providerId: {}. Handling new account.", providerId);
             handleNewAccount(userInfo, request, response);
         }
     }
@@ -118,15 +121,17 @@ public class AuthService {
             Account existingAccount = accountRepository.findByEmail(email)
                     .orElseThrow(() -> new CustomErrorException(ErrorCode.NOT_FOUND_ACCOUNT_ERROR_MESSAGE));
             uuid = existingAccount.getUid();
+            updateAccountInfo(existingAccount, userInfo);
+            accountRepository.save(existingAccount);
+            log.info("Updated existing account with UID: {}", uuid);
+            return existingAccount;
         } else {
             uuid = UUID.nameUUIDFromBytes(email.getBytes(StandardCharsets.UTF_8)).toString();
+            Account newAccount = createNewAccount(providerId, displayName, email, profileImageUrl, accessToken, refreshToken, uuid, GOOGLE_PROVIDER);
+            accountRepository.save(newAccount);
+            log.info("Created new account with UID: {}", newAccount.getUid());
+            return newAccount;
         }
-
-        Account account = accountRepository.findByProviderId(providerId)
-                .map(existingAccount -> updateExistingAccount(existingAccount, userInfo, refreshToken))
-                .orElse(createNewAccount(providerId, displayName, email, profileImageUrl, accessToken, refreshToken, uuid, GOOGLE_PROVIDER));
-
-        return accountRepository.save(account);
     }
 
     @Transactional
@@ -136,34 +141,31 @@ public class AuthService {
         Optional<String> cookieTokenOpt = AuthCookieUtils.getCookieValue(request);
 
         if (cookieTokenOpt.isPresent()) {
+            log.info("Token found in cookie. Verifying token.");
             String uid = firebaseTokenVerifier.verifyTokenAndGetUid(cookieTokenOpt.get());
             Member cookieTokenMember = memberRepository.findByPrimaryUid(uid)
                     .orElseThrow(() -> new CustomErrorException(ErrorCode.NOT_FOUND_MEMBER));
 
             addNewAccountToExistingMember(cookieTokenMember, userInfo, response);
         } else {
+            log.info("No token found in cookie. Updating existing account and redirecting.");
             accountRepository.save(existingAccount);
-            log.info("Updated existing Account. Account UID: {}", existingAccount.getUid());
-
             constructAndRedirect(response, firebaseUtils.createCustomToken(existingAccount.getUid()), (String) userInfo.get("name"), (String) userInfo.get("picture"), (String) userInfo.get("email"), false);
         }
     }
 
     public void handleNewAccount(Map<String, Object> userInfo, HttpServletRequest request, HttpServletResponse response) throws FirebaseAuthException {
+        log.info("Handling new account for user: {}", userInfo.get("email"));
         Optional<String> cookieTokenOpt = AuthCookieUtils.getCookieValue(request);
 
         if (cookieTokenOpt.isPresent()) {
             String tokenValue = cookieTokenOpt.get();
-            log.info("Token found in cookie: {}", tokenValue);
-
             String uid = firebaseTokenVerifier.verifyTokenAndGetUid(tokenValue);
-            log.info("Token verified successfully, UID: {}", uid);
-
             Member cookieTokenMember = memberRepository.findByPrimaryUid(uid)
                     .orElse(null);
 
             if (cookieTokenMember != null) {
-                log.info("Member found with UID: {}, adding new account.", uid);
+                log.info("Member found, adding new account to existing member.");
                 addNewAccountToExistingMember(cookieTokenMember, userInfo, response);
             } else {
                 log.warn("Unexpected case: Member is null after lookup.");
@@ -177,6 +179,7 @@ public class AuthService {
 
     @Transactional
     public void addNewAccountToExistingMember(Member member, Map<String, Object> userInfo, HttpServletResponse response) throws FirebaseAuthException {
+        log.info("Adding new account to existing member.");
         Account newAccount = createOrUpdateAccount(userInfo);
 
         boolean accountExists = member.getMemberAccounts().stream()
@@ -188,7 +191,7 @@ public class AuthService {
             member.setDeletedAt(null);
 
             memberAccountRepository.save(memberAccount);
-            log.info("Added new account to existing Member. Account UID: {}", newAccount.getUid());
+            log.info("Added new account to existing member. Account UID: {}", newAccount.getUid());
         } else {
             log.info("Account already associated with this member. UID: {}", newAccount.getUid());
         }
@@ -201,6 +204,7 @@ public class AuthService {
 
     @Transactional
     public void createNewMemberWithAccount(Map<String, Object> userInfo, HttpServletResponse response) throws FirebaseAuthException {
+        log.info("Creating new member with new account for user: {}", userInfo.get("email"));
         Account account = createOrUpdateAccount(userInfo);
 
         String displayName = (String) userInfo.get("name");
@@ -228,18 +232,5 @@ public class AuthService {
 
         String customToken = firebaseUtils.createCustomToken(account.getUid());
         constructAndRedirect(response, customToken, (String) userInfo.get("name"), (String) userInfo.get("picture"), (String) userInfo.get("email"), false);
-    }
-
-    private void updateAccountInfo(Account account, Map<String, Object> userInfo) {
-        account.setDisplayName((String) userInfo.get("name"));
-        account.setEmail((String) userInfo.get("email"));
-        account.setProfileImageUrl((String) userInfo.get("picture"));
-        account.setAccessToken((String) userInfo.get("access_token"));
-        String refreshToken = (String) userInfo.get("refresh_token");
-        if (refreshToken != null) {
-            account.setRefreshToken(refreshToken);
-        }
-        account.setAccessTokenFetchedAt(LocalDateTime.now());
-        account.setProvider(GOOGLE_PROVIDER);
     }
 }

@@ -81,6 +81,24 @@ public class GoogleOAuthUtils {
         }
     }
 
+    public Map<String, Object> getGoogleUserInfoAndTokens(String code) {
+        try {
+            // Google Token 추출
+            Map<String, String> tokenResponse = getGoogleTokens(code);
+            String accessToken = tokenResponse.get("access_token");
+            String refreshToken = tokenResponse.get("refresh_token");
+
+            // userInfo에 Token 삽입해서 반환
+            Map<String, Object> userInfo = getGoogleUserInfo(accessToken);
+            userInfo.put("access_token", accessToken);
+            userInfo.put("refresh_token", refreshToken);
+
+            return userInfo;
+        } catch (Exception e) {
+            throw new CustomErrorException(ErrorCode.FAILED_TO_FETCH_GOOGLE_USER_INFO, e.getMessage());
+        }
+    }
+
     public Map<String, String> refreshAccessToken(String refreshToken) {
         String tokenUrl = "https://oauth2.googleapis.com/token";
 

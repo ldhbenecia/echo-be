@@ -20,17 +20,13 @@ import woozlabs.echo.domain.gmail.dto.thread.*;
 import woozlabs.echo.domain.gmail.service.GmailService;
 import woozlabs.echo.domain.gmail.util.GmailUtility;
 import woozlabs.echo.domain.member.entity.Account;
-import woozlabs.echo.global.constant.GlobalConstant;
 import woozlabs.echo.global.dto.ResponseDto;
 import woozlabs.echo.global.exception.CustomErrorException;
 import woozlabs.echo.global.exception.ErrorCode;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Slf4j
 @RestController
@@ -167,17 +163,17 @@ public class GmailController {
 
     @PostMapping("/api/v1/gmail/messages/send")
     public ResponseEntity<?> sendMessage(HttpServletRequest httpServletRequest,
-                                                   @RequestParam("toEmailAddress") String toEmailAddress,
+                                                   @RequestParam("toEmailAddress") List<String> toEmailAddresses,
                                                    @RequestParam("subject") String subject,
                                                    @RequestParam("bodyText") String bodyText,
                                                    @RequestParam(value = "files", required = false) List<MultipartFile> files,
                                                    @RequestParam("aAUid") String aAUid){
         log.info("Request to send message");
-        List<File> attachments = new ArrayList<>();
         try{
+            List<File> attachments = new ArrayList<>();
             String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
             GmailMessageSendRequest request = new GmailMessageSendRequest();
-            request.setToEmailAddress(toEmailAddress);
+            request.setToEmailAddresses(toEmailAddresses);
             request.setSubject(subject);
             request.setBodyText(bodyText);
             if(files == null) files = new ArrayList<>();
@@ -195,68 +191,104 @@ public class GmailController {
         }
     }
 
-    @GetMapping("/api/v1/gmail/drafts/{id}")
-    public ResponseEntity<ResponseDto> getDraft(HttpServletRequest httpServletRequest, @PathVariable("id") String id,
-                                                @RequestParam("aAUid") String aAUid){
-        log.info("Request to get draft");
-        String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
-        GmailDraftGetResponse response = gmailService.getUserEmailDraft(accessToken, id);
-        return new ResponseEntity<>(response, HttpStatus.OK);
-    }
-
     @PostMapping("/api/v1/gmail/drafts/create")
     public ResponseEntity<?> createDraft(HttpServletRequest httpServletRequest,
-                                                   @RequestParam("toEmailAddress") String toEmailAddress,
+                                                   @RequestParam("toEmailAddress") List<String> toEmailAddresses,
                                                    @RequestParam("subject") String subject,
                                                    @RequestParam("bodyText") String bodyText,
                                                    @RequestParam(value = "files", required = false) List<MultipartFile> files,
-                                         @RequestParam("aAUid") String aAUid){
+                                                   @RequestParam("aAUid") String aAUid){
         log.info("Request to create draft");
-        String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
-        GmailDraftCommonRequest request = new GmailDraftCommonRequest();
-        request.setToEmailAddress(toEmailAddress);
-        request.setSubject(subject);
-        request.setBodyText(bodyText);
-        request.setFiles(files);
-        GmailDraftCreateResponse response = gmailService.createUserEmailDraft(accessToken, request);
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        try{
+            List<File> attachments = new ArrayList<>();
+            String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
+            GmailDraftCommonRequest request = new GmailDraftCommonRequest();
+            request.setToEmailAddresses(toEmailAddresses);
+            request.setSubject(subject);
+            request.setBodyText(bodyText);
+            if(files == null) files = new ArrayList<>();
+            for(MultipartFile multipartFile : files){
+                // check exceed maximum
+                if(multipartFile.getSize() > 25 * 1000 * 1000) throw new CustomErrorException(ErrorCode.EXCEED_ATTACHMENT_FILE_SIZE);
+                File tmpFile = gmailUtility.convertMultipartFileToTempFile(multipartFile);
+                attachments.add(tmpFile);
+            }
+            request.setFiles(attachments);
+            gmailService.createUserEmailDraft(accessToken, request);
+            return new ResponseEntity<>(HttpStatus.CREATED);
+        }catch (Exception e){
+            throw new CustomErrorException(ErrorCode.REQUEST_GMAIL_USER_DRAFTS_SEND_API_ERROR_MESSAGE, e.getMessage());
+        }
     }
 
-    @PutMapping("/api/v1/gmail/drafts/{id}/modify")
+    @PutMapping("/api/v1/gmail/drafts/{id}")
     public ResponseEntity<?> modifyDraft(HttpServletRequest httpServletRequest,
                                                    @PathVariable("id") String id,
-                                                   @RequestParam("toEmailAddress") String toEmailAddress,
+                                                   @RequestParam("toEmailAddress") List<String> toEmailAddresses,
                                                    @RequestParam("subject") String subject,
                                                    @RequestParam("bodyText") String bodyText,
                                                    @RequestParam(value = "files", required = false) List<MultipartFile> files,
-                                         @RequestParam("aAUid") String aAUid){
+                                                   @RequestParam("aAUid") String aAUid){
         log.info("Request to modify draft");
-        String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
-        GmailDraftCommonRequest request = new GmailDraftCommonRequest();
-        request.setToEmailAddress(toEmailAddress);
-        request.setSubject(subject);
-        request.setBodyText(bodyText);
-        request.setFiles(files);
-        GmailDraftUpdateResponse response = gmailService.updateUserEmailDraft(accessToken, id, request);
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        try{
+            List<File> attachments = new ArrayList<>();
+            String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
+            GmailDraftCommonRequest request = new GmailDraftCommonRequest();
+            request.setToEmailAddresses(toEmailAddresses);
+            request.setSubject(subject);
+            request.setBodyText(bodyText);
+            if(files == null) files = new ArrayList<>();
+            for(MultipartFile multipartFile : files){
+                // check exceed maximum
+                if(multipartFile.getSize() > 25 * 1000 * 1000) throw new CustomErrorException(ErrorCode.EXCEED_ATTACHMENT_FILE_SIZE);
+                File tmpFile = gmailUtility.convertMultipartFileToTempFile(multipartFile);
+                attachments.add(tmpFile);
+            }
+            request.setFiles(attachments);
+            GmailDraftUpdateResponse response = gmailService.updateUserEmailDraft(accessToken, id, request);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        }catch (Exception e){
+            throw new CustomErrorException(ErrorCode.REQUEST_GMAIL_USER_DRAFTS_MODIFY_API_ERROR_MESSAGE, e.getMessage());
+        }
     }
 
     @PostMapping(value = "/api/v1/gmail/drafts/send", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> sendDraft(HttpServletRequest httpServletRequest,
-                                                   @RequestParam("toEmailAddress") String toEmailAddress,
+                                                   @RequestParam("toEmailAddress") List<String> toEmailAddresses,
                                                    @RequestParam("subject") String subject,
                                                    @RequestParam("bodyText") String bodyText,
                                                    @RequestParam(value = "files", required = false) List<MultipartFile> files,
-                                       @RequestParam("aAUid") String aAUid) {
+                                                   @RequestParam("aAUid") String aAUid) {
         log.info("Request to send draft");
+        try {
+            List<File> attachments = new ArrayList<>();
+            String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
+            GmailDraftCommonRequest request = new GmailDraftCommonRequest();
+            request.setToEmailAddresses(toEmailAddresses);
+            request.setSubject(subject);
+            request.setBodyText(bodyText);
+            if(files == null) files = new ArrayList<>();
+            for(MultipartFile multipartFile : files){
+                // check exceed maximum
+                if(multipartFile.getSize() > 25 * 1000 * 1000) throw new CustomErrorException(ErrorCode.EXCEED_ATTACHMENT_FILE_SIZE);
+                File tmpFile = gmailUtility.convertMultipartFileToTempFile(multipartFile);
+                attachments.add(tmpFile);
+            }
+            request.setFiles(attachments);
+            GmailDraftSendResponse response = gmailService.sendUserEmailDraft(accessToken, request);
+            return new ResponseEntity<>(response, HttpStatus.CREATED);
+        }catch (Exception e){
+            throw new CustomErrorException(ErrorCode.REQUEST_GMAIL_USER_MESSAGES_SEND_API_ERROR_MESSAGE, ErrorCode.REQUEST_GMAIL_USER_MESSAGES_SEND_API_ERROR_MESSAGE.getMessage());
+        }
+    }
+
+    @DeleteMapping("/api/v1/gmail/drafts/{id}")
+    public ResponseEntity<?> deleteDraft(HttpServletRequest httpServletRequest, @PathVariable("id") String id,
+                                         @RequestParam("aAUid") String aAUid) {
+        log.info("Request to delete draft");
         String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
-        GmailDraftCommonRequest request = new GmailDraftCommonRequest();
-        request.setToEmailAddress(toEmailAddress);
-        request.setSubject(subject);
-        request.setBodyText(bodyText);
-        request.setFiles(files);
-        GmailDraftSendResponse response = gmailService.sendUserEmailDraft(accessToken, request);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        gmailService.deleteDraft(accessToken, id);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
     @PostMapping("/api/v1/gmail/watch")

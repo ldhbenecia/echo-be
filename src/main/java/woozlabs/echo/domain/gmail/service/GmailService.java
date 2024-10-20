@@ -9,6 +9,7 @@ import com.google.api.services.gmail.model.Thread;
 import jakarta.activation.DataHandler;
 import jakarta.activation.DataSource;
 import jakarta.activation.FileDataSource;
+import jakarta.mail.Address;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Multipart;
 import jakarta.mail.Session;
@@ -279,7 +280,6 @@ public class GmailService {
             Message message = createMessage(mimeMessage);
             gmailService.users().messages().send(USER_ID, message).execute();
         }catch (Exception e) {
-            e.printStackTrace();
             throw new CustomErrorException(ErrorCode.REQUEST_GMAIL_USER_MESSAGES_SEND_API_ERROR_MESSAGE,
                     ErrorCode.REQUEST_GMAIL_USER_MESSAGES_SEND_API_ERROR_MESSAGE.getMessage()
             );
@@ -324,6 +324,17 @@ public class GmailService {
         }
     }
 
+    public void deleteDraft(String accessToken, String id) {
+        try {
+            Gmail gmailService = gmailUtility.createGmailService(accessToken);
+            gmailService.users().drafts().delete(USER_ID, id).execute();
+        } catch (IOException e) {
+            throw new CustomErrorException(ErrorCode.REQUEST_GMAIL_USER_DRAFTS_DELETE_API_ERROR_MESSAGE,
+                    ErrorCode.REQUEST_GMAIL_USER_DRAFTS_DELETE_API_ERROR_MESSAGE.getMessage()
+            );
+        }
+    }
+
     public GmailDraftGetResponse getUserEmailDraft(String accessToken, String id){
         try{
             Gmail gmailService = gmailUtility.createGmailService(accessToken);
@@ -363,7 +374,8 @@ public class GmailService {
         }
     }
 
-    public GmailDraftCreateResponse createUserEmailDraft(String accessToken, GmailDraftCommonRequest request){
+    @Async
+    public void createUserEmailDraft(String accessToken, GmailDraftCommonRequest request){
         try{
             Gmail gmailService = gmailUtility.createGmailService(accessToken);
             Profile profile = gmailService.users().getProfile(USER_ID).execute();
@@ -373,16 +385,17 @@ public class GmailService {
             Message message = createMessage(mimeMessage);
             // create new draft
             Draft draft = new Draft().setMessage(message);
-            draft = gmailService.users().drafts().create(USER_ID, draft).execute();
-            //GmailDraftGetMessage changedMessage = GmailDraftGetMessage.toGmailDraftGetMessages(draft.getMessage());
-            return GmailDraftCreateResponse.builder()
-                    .id(draft.getId())
-                    //.message(changedMessage)
-                    .build();
+            gmailService.users().drafts().create(USER_ID, draft).execute();
         }catch (Exception e) {
-            throw new CustomErrorException(ErrorCode.REQUEST_GMAIL_USER_DRAFTS_CREATE_API_ERROR_MESSAGE,
-                    ErrorCode.REQUEST_GMAIL_USER_DRAFTS_CREATE_API_ERROR_MESSAGE.getMessage()
+            throw new CustomErrorException(ErrorCode.REQUEST_GMAIL_USER_MESSAGES_SEND_API_ERROR_MESSAGE,
+                    ErrorCode.REQUEST_GMAIL_USER_MESSAGES_SEND_API_ERROR_MESSAGE.getMessage()
             );
+        }finally {
+            for (File file : request.getFiles()) {
+                if (file.exists()) {
+                    file.delete();
+                }
+            }
         }
     }
 
@@ -763,14 +776,16 @@ public class GmailService {
 
     // Methods : create something
 
-    private MimeMessage createEmail(GmailMessageSendRequest request) throws MessagingException, IOException {
+    private MimeMessage createEmail(GmailMessageSendRequest request) throws MessagingException {
         Properties props = new Properties();
         Session session = Session.getDefaultInstance(props, null);
         MimeMessage email = new MimeMessage(session);
         // setting base
         email.setFrom(new InternetAddress(request.getFromEmailAddress()));
-        email.addRecipient(jakarta.mail.Message.RecipientType.TO,
-                new InternetAddress(request.getToEmailAddress()));
+        // handling multiple recipients
+        for (String recipient : request.getToEmailAddresses()) {
+            email.addRecipient(jakarta.mail.Message.RecipientType.TO, new InternetAddress(recipient));
+        }
         email.setSubject(request.getSubject());
         // setting body
         Multipart multipart = new MimeMultipart();
@@ -818,31 +833,58 @@ public class GmailService {
         return email;
     }
 
-    private MimeMessage createDraft(GmailDraftCommonRequest request) throws MessagingException, IOException {
+    private MimeMessage createDraft(GmailDraftCommonRequest request) throws MessagingException {
         Properties props = new Properties();
         Session session = Session.getDefaultInstance(props, null);
         MimeMessage email = new MimeMessage(session);
         // setting base
         email.setFrom(new InternetAddress(request.getFromEmailAddress()));
-        email.addRecipient(jakarta.mail.Message.RecipientType.TO,
-                new InternetAddress(request.getToEmailAddress()));
+        // handling multiple recipients
+        for (String recipient : request.getToEmailAddresses()) {
+            email.addRecipient(jakarta.mail.Message.RecipientType.TO, new InternetAddress(recipient));
+        }
         email.setSubject(request.getSubject());
         // setting body
         Multipart multipart = new MimeMultipart();
-        MimeBodyPart mimeBodyPart = new MimeBodyPart();
-        mimeBodyPart.setContent(request.getBodyText(), MULTI_PART_TEXT_PLAIN);
-        multipart.addBodyPart(mimeBodyPart); // set bodyText
-        List<MultipartFile> files = request.getFiles() != null ? request.getFiles() : new ArrayList<>();
-        for(MultipartFile mimFile : files){
+        MimeBodyPart htmlPart = new MimeBodyPart();
+        String bodyText = request.getBodyText();
+        Document doc = Jsoup.parse(bodyText);
+        Element body = doc.body();
+        List<GmailMessageInlineImage> base64Images = new ArrayList<>();
+        Pattern pattern = Pattern.compile("data:(.*?);base64,([^\"']*)");
+        int cidNum = 0;
+        for(Element element : body.children()){
+            if(element.tagName().equals("img") && element.attr("src").startsWith("data:")){
+                String src = element.attr("src");
+                Matcher matcher = pattern.matcher(src);
+                if (matcher.find()) {
+                    String mimeType = matcher.group(1);
+                    String base64Data = matcher.group(2);
+                    byte[] imageData = java.util.Base64.getDecoder().decode(base64Data);
+                    base64Images.add(new GmailMessageInlineImage(mimeType, imageData));
+                }
+                element.attr("src", "cid:image" + cidNum);
+            }
+        }
+        htmlPart.setContent(body.toString(), "text/html");
+        multipart.addBodyPart(htmlPart);
+
+        for(File file : request.getFiles()){
             MimeBodyPart fileMimeBodyPart = new MimeBodyPart();
-            if(mimFile.getOriginalFilename() == null) throw new CustomErrorException(ErrorCode.REQUEST_GMAIL_USER_DRAFTS_SEND_API_ERROR_MESSAGE);
-            File file = File.createTempFile(TEMP_FILE_PREFIX, mimFile.getOriginalFilename());
-            mimFile.transferTo(file);
             DataSource source = new FileDataSource(file);
-            fileMimeBodyPart.setFileName(mimFile.getOriginalFilename());
             fileMimeBodyPart.setDataHandler(new DataHandler(source));
+            fileMimeBodyPart.setFileName(file.getName());
             multipart.addBodyPart(fileMimeBodyPart);
-            file.deleteOnExit();
+        }
+
+        for(int i = 0;i < base64Images.size();i++){
+            GmailMessageInlineImage inlineFile = base64Images.get(i);
+            MimeBodyPart imagePart = new MimeBodyPart();
+            imagePart.setContent(inlineFile.getData(), inlineFile.getMimeType());
+            imagePart.setFileName("image.png");
+            imagePart.setContentID("<image" + i + ">");
+            imagePart.setDisposition(MimeBodyPart.INLINE);
+            multipart.addBodyPart(imagePart);
         }
         email.setContent(multipart);
         return email;

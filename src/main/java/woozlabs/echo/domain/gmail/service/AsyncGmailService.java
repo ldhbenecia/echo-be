@@ -69,26 +69,15 @@ public class AsyncGmailService {
         MimeMessage email = new MimeMessage(session);
         // setting base
         email.setFrom(new InternetAddress(request.getFromEmailAddress()));
-        email.addRecipient(jakarta.mail.Message.RecipientType.TO,
-                new InternetAddress(request.getToEmailAddress()));
+        for(String toEmailAddress : request.getToEmailAddresses()){
+            email.addRecipient(jakarta.mail.Message.RecipientType.TO, new InternetAddress(toEmailAddress));
+        }
         email.setSubject(request.getSubject());
         // setting body
         Multipart multipart = new MimeMultipart();
         MimeBodyPart mimeBodyPart = new MimeBodyPart();
         mimeBodyPart.setContent(request.getBodyText(), MULTI_PART_TEXT_PLAIN);
         multipart.addBodyPart(mimeBodyPart); // set bodyText
-        List<MultipartFile> files = request.getFiles() != null ? request.getFiles() : new ArrayList<>();
-        for(MultipartFile mimFile : files){
-            MimeBodyPart fileMimeBodyPart = new MimeBodyPart();
-            if(mimFile.getOriginalFilename() == null) throw new CustomErrorException(ErrorCode.REQUEST_GMAIL_USER_DRAFTS_SEND_API_ERROR_MESSAGE);
-            File file = File.createTempFile(TEMP_FILE_PREFIX, mimFile.getOriginalFilename());
-            mimFile.transferTo(file);
-            DataSource source = new FileDataSource(file);
-            fileMimeBodyPart.setFileName(mimFile.getOriginalFilename());
-            fileMimeBodyPart.setDataHandler(new DataHandler(source));
-            multipart.addBodyPart(fileMimeBodyPart);
-            file.deleteOnExit();
-        }
         email.setContent(multipart);
         return email;
     }

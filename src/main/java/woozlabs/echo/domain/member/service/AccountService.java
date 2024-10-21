@@ -1,6 +1,7 @@
 package woozlabs.echo.domain.member.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import woozlabs.echo.domain.member.dto.profile.AccountProfileResponseDto;
@@ -15,6 +16,7 @@ import woozlabs.echo.global.exception.ErrorCode;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -50,6 +52,7 @@ public class AccountService {
 
     @Transactional
     public void unlinkAccount(String primaryUid, String accountUid) {
+        log.info("Unlinking accountUid: {} from primaryUid: {}", accountUid, primaryUid);
         Member member = memberRepository.findByPrimaryUid(primaryUid)
                 .orElseThrow(() -> new CustomErrorException(ErrorCode.NOT_FOUND_MEMBER, "Member not found for primaryUid: " + primaryUid));
 
@@ -60,17 +63,17 @@ public class AccountService {
                 .orElseThrow(() -> new CustomErrorException(ErrorCode.NOT_FOUND_MEMBER_ACCOUNT));
 
         if (account.getUid().equals(member.getPrimaryUid())) {
+            log.warn("Attempt to unlink primary account with UID: {}", accountUid);
             throw new CustomErrorException(ErrorCode.CANNOT_UNLINK_PRIMARY_ACCOUNT);
         }
 
+        log.debug("Removing relation between member: {} and account: {}", primaryUid, accountUid);
         member.getMemberAccounts().remove(memberAccount);
         account.getMemberAccounts().remove(memberAccount);
-
         member.getWatchNotifications().remove(accountUid);
 
+        log.info("Successfully unlinked accountUid: {} from primaryUid: {}", accountUid, primaryUid);
         memberAccountRepository.delete(memberAccount);
-        memberRepository.save(member);
-        accountRepository.save(account);
     }
 
     @Transactional
@@ -79,6 +82,5 @@ public class AccountService {
                 .orElseThrow(() -> new CustomErrorException(ErrorCode.NOT_FOUND_ACCOUNT_ERROR_MESSAGE));
 
         account.setLastLoginAt(LocalDateTime.now());
-        accountRepository.save(account);
     }
 }

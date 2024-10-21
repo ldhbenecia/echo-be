@@ -48,6 +48,7 @@ public class Member extends BaseEntity {
     @CollectionTable(name = "accounts_watch_notifications", joinColumns = @JoinColumn(name = "member_id"))
     @MapKeyColumn(name = "account_uid")
     @Column(name = "notification_preference")
+    @Enumerated(EnumType.STRING)
     private Map<String, Watch> watchNotifications = new HashMap<>();
 
     @ElementCollection

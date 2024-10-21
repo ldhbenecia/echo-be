@@ -23,6 +23,7 @@ import static woozlabs.echo.global.utils.GlobalUtility.splitSenderData;
 @Data
 public class GmailThreadGetMessagesResponse {
     private String id; // message id
+    private String subject;
     private Long timestamp;
     private String timezone = ""; // timezone
     private GmailThreadGetMessagesFrom from;
@@ -103,6 +104,9 @@ public class GmailThreadGetMessagesResponse {
                 }case MESSAGE_PAYLOAD_HEADER_DATE_KEY -> {
                     String timestamp = header.getValue();
                     extractAndSetDateTime(timestamp, gmailThreadGetMessages);
+                }case MESSAGE_PAYLOAD_HEADER_SUBJECT_KEY -> {
+                    String subject = header.getValue();
+                    gmailThreadGetMessages.setSubject(subject);
                 }
             }
         }

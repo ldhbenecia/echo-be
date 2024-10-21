@@ -54,6 +54,7 @@ public enum ErrorCode {
     REQUEST_GMAIL_USER_THREAD_DELETE_API_ERROR_MESSAGE(500, "Failed to delete gmail thread api"),
     REQUEST_GMAIL_USER_LABELS_GET_API_ERROR_MESSAGE(500, "Failed to get gmail labels api"),
     REQUEST_GMAIL_USER_MESSAGES_SEND_API_ERROR_MESSAGE(500, "Failed to send gmail messages api"),
+    REQUEST_GMAIL_USER_MESSAGES_SEND_REPLY_API_ERROR_MESSAGE(500, "Failed to send gmail message reply api"),
     REQUEST_GMAIL_USER_DRAFTS_SEND_API_ERROR_MESSAGE(500, "Failed to send draft messages api"),
     REQUEST_GMAIL_USER_DRAFTS_DELETE_API_ERROR_MESSAGE(500, "Failed to delete gmail draft messages api"),
     REQUEST_GMAIL_USER_DRAFTS_MODIFY_API_ERROR_MESSAGE(500, "Failed to modify gmail draft messages api"),

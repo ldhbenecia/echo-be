@@ -655,6 +655,36 @@ public class GmailService {
         }
     }
 
+    public void sendEmailReply(GmailMessageSendRequest request, String messageId, String accessToken){
+        try{
+            Gmail gmailService = gmailUtility.createGmailService(accessToken);
+            Profile profile = gmailService.users().getProfile(USER_ID).execute();
+            String fromEmailAddress = profile.getEmailAddress();
+            request.setFromEmailAddress(fromEmailAddress);
+
+            MimeMessage mimeMessage = createEmail(request);
+            // set reply message
+            Message lastMessage = gmailService.users().messages().get(USER_ID, messageId).execute();
+            mimeMessage.setHeader("In-Reply-To", lastMessage.getPayload().getHeaders().stream()
+                    .filter(header -> header.getName().equals("Message-ID"))
+                    .findFirst()
+                    .map(MessagePartHeader::getValue)
+                    .orElse(""));
+            Message message = createMessage(mimeMessage);
+            gmailService.users().messages().send(USER_ID, message).execute();
+        }catch (Exception e) {
+            throw new CustomErrorException(ErrorCode.REQUEST_GMAIL_USER_MESSAGES_SEND_API_ERROR_MESSAGE,
+                    ErrorCode.REQUEST_GMAIL_USER_MESSAGES_SEND_API_ERROR_MESSAGE.getMessage()
+            );
+        }finally {
+            for (File file : request.getFiles()) {
+                if (file.exists()) {
+                    file.delete();
+                }
+            }
+        }
+    }
+
     // Methods : get something
     private List<GmailThreadListThreads> getDetailedThreads(List<Thread> threads, Gmail gmailService) {
         //int nThreads = Runtime.getRuntime().availableProcessors();

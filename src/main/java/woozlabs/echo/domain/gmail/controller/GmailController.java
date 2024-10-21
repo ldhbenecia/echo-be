@@ -26,6 +26,7 @@ import woozlabs.echo.global.exception.ErrorCode;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
@@ -163,7 +164,7 @@ public class GmailController {
 
     @PostMapping("/api/v1/gmail/messages/send")
     public ResponseEntity<?> sendMessage(HttpServletRequest httpServletRequest,
-                                                   @RequestParam("toEmailAddress") List<String> toEmailAddresses,
+                                                   @RequestParam("toEmailAddress") String toEmailAddresses,
                                                    @RequestParam("subject") String subject,
                                                    @RequestParam("bodyText") String bodyText,
                                                    @RequestParam(value = "files", required = false) List<MultipartFile> files,
@@ -173,7 +174,8 @@ public class GmailController {
             List<File> attachments = new ArrayList<>();
             String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
             GmailMessageSendRequest request = new GmailMessageSendRequest();
-            request.setToEmailAddresses(toEmailAddresses);
+            List<String> emailList = Arrays.asList(toEmailAddresses.split(","));
+            request.setToEmailAddresses(emailList);
             request.setSubject(subject);
             request.setBodyText(bodyText);
             if(files == null) files = new ArrayList<>();
@@ -191,9 +193,43 @@ public class GmailController {
         }
     }
 
+    @PostMapping("/api/v1/gmail/messages/send/reply")
+    public ResponseEntity<?> sendReply(HttpServletRequest httpServletRequest,
+                                       @RequestParam("toEmailAddress") String toEmailAddresses,
+                                       @RequestParam("subject") String subject,
+                                       @RequestParam("bodyText") String bodyText,
+                                       @RequestParam("messageId") String messageId,
+                                       @RequestParam(value = "files", required = false) List<MultipartFile> files,
+                                       @RequestParam("aAUid") String aAUid){
+        log.info("Request to send reply");
+        try {
+            List<File> attachments = new ArrayList<>();
+            String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
+            GmailMessageSendRequest request = new GmailMessageSendRequest();
+            List<String> emailList = Arrays.asList(toEmailAddresses.split(","));
+            request.setToEmailAddresses(emailList);
+            request.setSubject(subject);
+            request.setBodyText(bodyText);
+            if (files == null) files = new ArrayList<>();
+            for (MultipartFile multipartFile : files) {
+                // check exceed maximum
+                if (multipartFile.getSize() > 25 * 1000 * 1000)
+                    throw new CustomErrorException(ErrorCode.EXCEED_ATTACHMENT_FILE_SIZE);
+                File tmpFile = gmailUtility.convertMultipartFileToTempFile(multipartFile);
+                attachments.add(tmpFile);
+            }
+            request.setFiles(attachments);
+            gmailService.sendEmailReply(request, messageId, accessToken);
+            return new ResponseEntity<>(HttpStatus.CREATED);
+        }catch (Exception e){
+            throw new CustomErrorException(ErrorCode.REQUEST_GMAIL_USER_MESSAGES_SEND_REPLY_API_ERROR_MESSAGE, e.getMessage());
+        }
+    }
+
+
     @PostMapping("/api/v1/gmail/drafts/create")
     public ResponseEntity<?> createDraft(HttpServletRequest httpServletRequest,
-                                                   @RequestParam("toEmailAddress") List<String> toEmailAddresses,
+                                                   @RequestParam("toEmailAddress") String toEmailAddresses,
                                                    @RequestParam("subject") String subject,
                                                    @RequestParam("bodyText") String bodyText,
                                                    @RequestParam(value = "files", required = false) List<MultipartFile> files,
@@ -203,7 +239,8 @@ public class GmailController {
             List<File> attachments = new ArrayList<>();
             String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
             GmailDraftCommonRequest request = new GmailDraftCommonRequest();
-            request.setToEmailAddresses(toEmailAddresses);
+            List<String> emailList = Arrays.asList(toEmailAddresses.split(","));
+            request.setToEmailAddresses(emailList);
             request.setSubject(subject);
             request.setBodyText(bodyText);
             if(files == null) files = new ArrayList<>();
@@ -224,7 +261,7 @@ public class GmailController {
     @PutMapping("/api/v1/gmail/drafts/{id}")
     public ResponseEntity<?> modifyDraft(HttpServletRequest httpServletRequest,
                                                    @PathVariable("id") String id,
-                                                   @RequestParam("toEmailAddress") List<String> toEmailAddresses,
+                                                   @RequestParam("toEmailAddress") String toEmailAddresses,
                                                    @RequestParam("subject") String subject,
                                                    @RequestParam("bodyText") String bodyText,
                                                    @RequestParam(value = "files", required = false) List<MultipartFile> files,
@@ -234,7 +271,8 @@ public class GmailController {
             List<File> attachments = new ArrayList<>();
             String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
             GmailDraftCommonRequest request = new GmailDraftCommonRequest();
-            request.setToEmailAddresses(toEmailAddresses);
+            List<String> emailList = Arrays.asList(toEmailAddresses.split(","));
+            request.setToEmailAddresses(emailList);
             request.setSubject(subject);
             request.setBodyText(bodyText);
             if(files == null) files = new ArrayList<>();
@@ -254,7 +292,7 @@ public class GmailController {
 
     @PostMapping(value = "/api/v1/gmail/drafts/send", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> sendDraft(HttpServletRequest httpServletRequest,
-                                                   @RequestParam("toEmailAddress") List<String> toEmailAddresses,
+                                                   @RequestParam("toEmailAddress") String toEmailAddresses,
                                                    @RequestParam("subject") String subject,
                                                    @RequestParam("bodyText") String bodyText,
                                                    @RequestParam(value = "files", required = false) List<MultipartFile> files,
@@ -264,7 +302,8 @@ public class GmailController {
             List<File> attachments = new ArrayList<>();
             String accessToken = gmailUtility.getActiveAccountAccessToken(httpServletRequest, aAUid);
             GmailDraftCommonRequest request = new GmailDraftCommonRequest();
-            request.setToEmailAddresses(toEmailAddresses);
+            List<String> emailList = Arrays.asList(toEmailAddresses.split(","));
+            request.setToEmailAddresses(emailList);
             request.setSubject(subject);
             request.setBodyText(bodyText);
             if(files == null) files = new ArrayList<>();

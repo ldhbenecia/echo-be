@@ -816,6 +816,18 @@ public class GmailService {
         for (String recipient : request.getToEmailAddresses()) {
             email.addRecipient(jakarta.mail.Message.RecipientType.TO, new InternetAddress(recipient));
         }
+        // handling multiple CC recipients
+        if (request.getCcEmailAddresses() != null) {
+            for (String ccRecipient : request.getCcEmailAddresses()) {
+                email.addRecipient(jakarta.mail.Message.RecipientType.CC, new InternetAddress(ccRecipient));
+            }
+        }
+        // handling multiple BCC recipients
+        if (request.getBccEmailAddresses() != null) {
+            for (String bccRecipient : request.getBccEmailAddresses()) {
+                email.addRecipient(jakarta.mail.Message.RecipientType.BCC, new InternetAddress(bccRecipient));
+            }
+        }
         email.setSubject(request.getSubject());
         // setting body
         Multipart multipart = new MimeMultipart();
@@ -872,6 +884,18 @@ public class GmailService {
         // handling multiple recipients
         for (String recipient : request.getToEmailAddresses()) {
             email.addRecipient(jakarta.mail.Message.RecipientType.TO, new InternetAddress(recipient));
+        }
+        // handling multiple CC recipients
+        if (request.getCcEmailAddresses() != null) {
+            for (String ccRecipient : request.getCcEmailAddresses()) {
+                email.addRecipient(jakarta.mail.Message.RecipientType.CC, new InternetAddress(ccRecipient));
+            }
+        }
+        // handling multiple BCC recipients
+        if (request.getBccEmailAddresses() != null) {
+            for (String bccRecipient : request.getBccEmailAddresses()) {
+                email.addRecipient(jakarta.mail.Message.RecipientType.BCC, new InternetAddress(bccRecipient));
+            }
         }
         email.setSubject(request.getSubject());
         // setting body

@@ -2,6 +2,14 @@ package woozlabs.echo.domain.member.service;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,10 +34,6 @@ import woozlabs.echo.domain.member.repository.MemberRepository;
 import woozlabs.echo.global.exception.CustomErrorException;
 import woozlabs.echo.global.exception.ErrorCode;
 import woozlabs.echo.global.utils.GoogleOAuthUtils;
-
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -99,10 +103,12 @@ public class MemberService {
 
     @Transactional
     public void softDeleteMember(String primaryUid) {
+        log.info("Soft deleting member with UID: {}", primaryUid);
         Member member = memberRepository.findByPrimaryUid(primaryUid)
                 .orElseThrow(() -> new CustomErrorException(ErrorCode.NOT_FOUND_MEMBER));
 
         member.setDeletedAt(LocalDateTime.now());
+        log.info("Successfully soft deleted member with UID: {}", primaryUid);
     }
 
     @Transactional
@@ -322,7 +328,8 @@ public class MemberService {
     }
 
     @Transactional
-    public ChangePrimaryAccountResponseDto changePrimaryAccount(String primaryUid, String newPrimaryUid) throws FirebaseAuthException {
+    public ChangePrimaryAccountResponseDto changePrimaryAccount(String primaryUid, String newPrimaryUid)
+            throws FirebaseAuthException {
         Member member = memberRepository.findByPrimaryUid(primaryUid)
                 .orElseThrow(() -> new CustomErrorException(ErrorCode.NOT_FOUND_MEMBER));
 
@@ -349,7 +356,8 @@ public class MemberService {
         return new ChangePrimaryAccountResponseDto(primaryToken);
     }
 
-    public Map<String, Boolean> checkPrimaryAccountEligibility(String primaryUid, CheckPrimaryAccountEligibilityRequestDto requestDto) {
+    public Map<String, Boolean> checkPrimaryAccountEligibility(String primaryUid,
+                                                               CheckPrimaryAccountEligibilityRequestDto requestDto) {
         Member member = memberRepository.findByPrimaryUid(primaryUid)
                 .orElseThrow(() -> new CustomErrorException(ErrorCode.NOT_FOUND_MEMBER));
 
